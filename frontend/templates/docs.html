@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>已生成文档管理</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        button { margin: 0 5px; cursor: pointer; }
+        .back-link { display: block; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>📄 已生成文档列表</h1>
+    <table id="doc-table">
+        <thead>
+            <tr>
+                <th>文件名</th>
+                <th>大小 (字节)</th>
+                <th>修改时间</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+    <a href="/" class="back-link">⬅ 返回上传页面</a>
+
+    <script>
+        async function loadDocs() {
+            const response = await fetch('/docs');
+            const docs = await response.json();
+            const tbody = document.querySelector('#doc-table tbody');
+            tbody.innerHTML = '';
+            docs.forEach(doc => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${doc.name}</td>
+                    <td>${doc.size}</td>
+                    <td>${doc.modified}</td>
+                    <td>
+                        <button onclick="downloadDoc('${doc.name}')">下载</button>
+                        <button onclick="deleteDoc('${doc.name}')">删除</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function downloadDoc(filename) {
+            window.location.href = `/docs/${filename}`;
+        }
+
+        async function deleteDoc(filename) {
+            if (!confirm(`确定要删除 ${filename} 吗？`)) return;
+            const response = await fetch(`/docs/${filename}`, { method: 'DELETE' });
+            const result = await response.json();
+            if (response.ok) {
+                alert(result.message);
+                loadDocs();
+            } else {
+                alert('删除失败');
+            }
+        }
+
+        window.onload = loadDocs;
+    </script>
+</body>
+</html>

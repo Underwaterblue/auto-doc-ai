@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 文档生成器 · 结构化技术文档</title>
+    <!-- Bootstrap 5 CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome 图标库 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { background: #f8f9fa; }
+        .container { max-width: 1200px; margin-top: 2rem; }
+        .card { border-radius: 1rem; border: none; box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.1); }
+        .step-indicator { display: flex; justify-content: space-between; margin-bottom: 2rem; }
+        .step { flex: 1; text-align: center; padding: 0.5rem; background: #e9ecef; margin: 0 0.25rem; border-radius: 2rem; font-weight: 500; color: #6c757d; }
+        .step.active { background: #0d6efd; color: white; }
+        .upload-area { border: 2px dashed #dee2e6; border-radius: 1rem; padding: 2rem; text-align: center; background: white; cursor: pointer; transition: 0.3s; }
+        .upload-area:hover { border-color: #0d6efd; background: #f1f8ff; }
+        .upload-area i { font-size: 3rem; color: #6c757d; }
+        #result { min-height: 300px; font-family: 'Monaco', 'Menlo', 'Courier New', monospace; }
+        .btn-action { margin-right: 0.5rem; }
+        .footer { margin-top: 3rem; text-align: center; color: #6c757d; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 标题 -->
+        <div class="text-center mb-4">
+            <h1 class="display-5 fw-bold">🤖 AI 结构化文档生成器</h1>
+            <p class="lead">上传代码或输入仓库地址，自动生成 README/API/用户手册等</p>
+        </div>
+
+        <!-- 步骤指示器（仅为视觉提示） -->
+        <div class="step-indicator">
+            <div class="step active">1. 输入源码</div>
+            <div class="step">2. 选择类型</div>
+            <div class="step">3. 生成 & 编辑</div>
+        </div>
+
+        <!-- 主卡片 -->
+        <div class="card p-4">
+            <!-- 选项卡：上传文件 / 远程仓库 -->
+            <ul class="nav nav-tabs mb-4" id="sourceTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="file-tab" data-bs-toggle="tab" data-bs-target="#file" type="button" role="tab">📁 上传文件/ZIP</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="repo-tab" data-bs-toggle="tab" data-bs-target="#repo" type="button" role="tab">🌐 远程仓库 URL</button>
+                </li>
+            </ul>
+
+            <!-- 选项卡内容 -->
+            <div class="tab-content" id="sourceTabContent">
+                <!-- 上传文件面板 -->
+                <div class="tab-pane fade show active" id="file" role="tabpanel">
+                    <div class="upload-area" id="dropArea">
+                        <i class="fas fa-cloud-upload-alt mb-3"></i>
+                        <h5>拖拽文件到此处 或 点击选择</h5>
+                        <p class="text-muted">支持 .py, .txt, .zip 等（最大 16MB）</p>
+                        <input type="file" id="fileInput" name="file" style="display: none;">
+                        <button class="btn btn-primary" type="button" id="selectFileBtn">选择文件</button>
+                    </div>
+                    <div id="selectedFileInfo" class="mt-2 text-success text-center" style="display: none;">
+                        <i class="fas fa-check-circle"></i> 已选择: <span id="fileName"></span>
+                    </div>
+                </div>
+                <!-- 远程仓库面板 -->
+                <div class="tab-pane fade" id="repo" role="tabpanel">
+                    <div class="mb-3">
+                        <label for="repoUrl" class="form-label">GitHub/GitLab 仓库地址</label>
+                        <input type="url" class="form-control" id="repoUrl" placeholder="例如: https://github.com/username/repo.git">
+                        <div class="form-text">支持公开仓库，私有仓库需要提供 Token（下方可选）</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="accessToken" class="form-label">访问令牌 (可选)</label>
+                        <input type="password" class="form-control" id="accessToken" placeholder="GitHub Personal Access Token">
+                    </div>
+                    <button class="btn btn-primary" id="cloneBtn">🚀 克隆并生成文档</button>
+                </div>
+            </div>
+
+            <!-- 文档类型和生成按钮（文件上传模式下使用） -->
+            <div class="row mt-4 align-items-end">
+                <div class="col-md-4">
+                    <label for="docType" class="form-label">文档类型</label>
+                    <select class="form-select" id="docType">
+                        <option value="README" selected>README 项目说明</option>
+                        <option value="API文档">API 文档</option>
+                        <option value="用户手册">用户手册</option>
+                        <option value="依赖分析">依赖分析</option>
+                        <option value="部署指南">部署指南</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="outputFormat" class="form-label">输出格式</label>
+                    <select class="form-select" id="outputFormat">
+                        <option value="markdown" selected>Markdown</option>
+                        <option value="html">HTML</option>
+                    </select>
+                </div>
+                <div class="col-md-4 d-grid">
+                    <button class="btn btn-success btn-lg" id="generateBtn" disabled>✨ 生成文档</button>
+                </div>
+            </div>
+
+            <!-- 加载提示（隐藏） -->
+            <div id="loading" class="text-center mt-3" style="display: none;">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">加载中...</span>
+                </div>
+                <p class="mt-2">AI 正在思考中，请稍候...</p>
+            </div>
+
+            <!-- 结果预览区（可编辑） -->
+            <div class="mt-4">
+                <label class="form-label fw-bold">📝 生成的文档 (可编辑)</label>
+                <div class="border rounded p-2 bg-light">
+                    <textarea class="form-control" id="result" rows="15" placeholder="生成的文档将显示在这里，你可以直接编辑..." style="font-family: monospace;"></textarea>
+                </div>
+                <div class="mt-2 d-flex gap-2">
+                    <button class="btn btn-outline-secondary btn-sm" id="copyBtn"><i class="far fa-copy"></i> 复制</button>
+                    <button class="btn btn-outline-secondary btn-sm" id="exportMdBtn"><i class="fas fa-file-code"></i> 导出 Markdown</button>
+                    <button class="btn btn-outline-secondary btn-sm" id="exportHtmlBtn"><i class="fas fa-file-code"></i> 导出 HTML</button>
+                    <span class="flex-grow-1"></span>
+                    <a href="/manage" class="btn btn-outline-primary btn-sm"><i class="fas fa-folder-open"></i> 管理已生成文档</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 页脚 -->
+        <div class="footer">
+            <p>🔐 API 密钥安全存储在服务端 .env 文件中 · 不会上传到 GitHub</p>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS (用于选项卡) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- 自定义脚本 -->
+    <script>
+        (function() {
+            // ---------- 文件上传交互 ----------
+            const dropArea = document.getElementById('dropArea');
+            const fileInput = document.getElementById('fileInput');
+            const selectFileBtn = document.getElementById('selectFileBtn');
+            const selectedFileInfo = document.getElementById('selectedFileInfo');
+            const fileNameSpan = document.getElementById('fileName');
+            const generateBtn = document.getElementById('generateBtn');
+
+            selectFileBtn.addEventListener('click', () => fileInput.click());
+
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    const file = e.target.files[0];
+                    fileNameSpan.textContent = file.name;
+                    selectedFileInfo.style.display = 'block';
+                    generateBtn.disabled = false;
+                } else {
+                    selectedFileInfo.style.display = 'none';
+                    generateBtn.disabled = true;
+                }
+            });
+
+            dropArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropArea.style.borderColor = '#0d6efd';
+                dropArea.style.background = '#f1f8ff';
+            });
+            dropArea.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                dropArea.style.borderColor = '#dee2e6';
+                dropArea.style.background = 'white';
+            });
+            dropArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropArea.style.borderColor = '#dee2e6';
+                dropArea.style.background = 'white';
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    fileInput.files = files;
+                    fileNameSpan.textContent = files[0].name;
+                    selectedFileInfo.style.display = 'block';
+                    generateBtn.disabled = false;
+                }
+            });
+
+            // ---------- 文件上传生成 ----------
+            const loading = document.getElementById('loading');
+            const resultTextarea = document.getElementById('result');
+            const docTypeSelect = document.getElementById('docType');
+            const outputFormatSelect = document.getElementById('outputFormat');
+
+            generateBtn.addEventListener('click', async () => {
+                const file = fileInput.files[0];
+                if (!file) {
+                    alert('请先选择一个文件');
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('doc_type', docTypeSelect.value);
+                formData.append('format', outputFormatSelect.value);
+
+                loading.style.display = 'block';
+                generateBtn.disabled = true;
+                resultTextarea.value = '';
+
+                try {
+                    const response = await fetch('/generate', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await response.json();
+                    if (response.ok) {
+                        resultTextarea.value = data.document;
+                    } else {
+                        resultTextarea.value = '错误：' + (data.error || '未知错误');
+                    }
+                } catch (err) {
+                    resultTextarea.value = '网络错误：' + err.message;
+                } finally {
+                    loading.style.display = 'none';
+                    generateBtn.disabled = false;
+                }
+            });
+
+            // ---------- 远程仓库克隆 ----------
+            const cloneBtn = document.getElementById('cloneBtn');
+            const repoUrlInput = document.getElementById('repoUrl');
+            const tokenInput = document.getElementById('accessToken');
+
+            cloneBtn.addEventListener('click', async () => {
+                const repoUrl = repoUrlInput.value.trim();
+                if (!repoUrl) {
+                    alert('请输入仓库URL');
+                    return;
+                }
+                const token = tokenInput.value.trim() || undefined;
+                const docType = docTypeSelect.value;
+
+                loading.style.display = 'block';
+                cloneBtn.disabled = true;
+                resultTextarea.value = '';
+
+                try {
+                    const response = await fetch('/clone_repo', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            repo_url: repoUrl,
+                            token: token,
+                            doc_type: docType
+                        })
+                    });
+                    const data = await response.json();
+                    if (response.ok) {
+                        resultTextarea.value = data.document;
+                        if (data.download) {
+                            alert(`文档已保存到服务器: ${data.download}`);
+                        }
+                    } else {
+                        resultTextarea.value = '错误：' + (data.error || '未知错误');
+                    }
+                } catch (err) {
+                    resultTextarea.value = '网络错误：' + err.message;
+                } finally {
+                    loading.style.display = 'none';
+                    cloneBtn.disabled = false;
+                }
+            });
+
+            // ---------- 编辑区操作 ----------
+            document.getElementById('copyBtn').addEventListener('click', () => {
+                resultTextarea.select();
+                document.execCommand('copy');
+                alert('已复制到剪贴板');
+            });
+
+            document.getElementById('exportMdBtn').addEventListener('click', () => {
+                const content = resultTextarea.value;
+                if (!content) return alert('没有内容可导出');
+                const blob = new Blob([content], { type: 'text/markdown' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'document.md';
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+
+            document.getElementById('exportHtmlBtn').addEventListener('click', () => {
+                const content = resultTextarea.value;
+                if (!content) return alert('没有内容可导出');
+                const htmlContent = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Generated Doc</title></head><body><pre>${content.replace(/</g, '&lt;')}</pre></body></html>`;
+                const blob = new Blob([htmlContent], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'document.html';
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+        })();
+    </script>
+</body>
+</html>
