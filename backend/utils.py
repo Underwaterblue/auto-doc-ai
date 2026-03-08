@@ -1,6 +1,7 @@
 import ast
 import os
 import zipfile
+import re
 
 def read_file_with_encoding(filepath):
     """
@@ -14,7 +15,6 @@ def read_file_with_encoding(filepath):
                 return f.read()
         except UnicodeDecodeError:
             continue
-    # 最后尝试以二进制读取并用 latin-1 解码（永远不会失败）
     with open(filepath, 'rb') as f:
         return f.read().decode('latin-1')
 
@@ -26,21 +26,7 @@ def extract_zip(zip_path, extract_to):
     return extract_to
 
 
-def analyze_code(directory):
-    """分析目录中的Python代码，返回函数/类信息列表"""
-    return analyze_python(directory)
-
-
-def analyze_python(root_dir):
-    """遍历目录，收集所有Python文件的结构信息"""
-    infos = []
-    for dirpath, _, files in os.walk(root_dir):
-        for fname in files:
-            if fname.endswith('.py'):
-                infos += analyze_python_file(os.path.join(dirpath, fname))
-    return infos
-
-
+# ---------- 多语言解析函数 ----------
 def analyze_python_file(filepath):
     """分析单个Python文件，提取函数和类定义及其文档字符串"""
     content = read_file_with_encoding(filepath)
@@ -59,6 +45,50 @@ def analyze_python_file(filepath):
                 'doc': doc
             })
     return result
+
+
+def analyze_js_file(filepath):
+    """简单解析 JavaScript 文件，提取函数名"""
+    content = read_file_with_encoding(filepath)
+    functions = re.findall(r'function\s+(\w+)\s*\(', content)
+    # 匹配箭头函数：const func = (...) => ...
+    arrow_funcs = re.findall(r'const\s+(\w+)\s*=\s*\([^)]*\)\s*=>', content)
+    all_funcs = functions + arrow_funcs
+    result = []
+    for func in all_funcs:
+        result.append({'type': 'function', 'name': func, 'doc': ''})
+    return result
+
+
+def analyze_java_file(filepath):
+    """简单解析 Java 文件，提取类名和方法名"""
+    content = read_file_with_encoding(filepath)
+    classes = re.findall(r'class\s+(\w+)', content)
+    # 匹配 public/private 等方法
+    methods = re.findall(r'(public|private|protected)?\s+\w+\s+(\w+)\s*\(', content)
+    method_names = [m[1] for m in methods]
+    result = []
+    for cls in classes:
+        result.append({'type': 'class', 'name': cls, 'doc': ''})
+    for method in method_names:
+        result.append({'type': 'method', 'name': method, 'doc': ''})
+    return result
+
+
+def analyze_code(directory):
+    """分析目录中的代码，支持多种语言"""
+    infos = []
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            filepath = os.path.join(root, file)
+            if file.endswith('.py'):
+                infos += analyze_python_file(filepath)
+            elif file.endswith('.js'):
+                infos += analyze_js_file(filepath)
+            elif file.endswith('.java'):
+                infos += analyze_java_file(filepath)
+            # 可以继续添加更多语言的支持
+    return infos
 
 
 def build_prompt(code_infos, doc_type='README'):

@@ -118,10 +118,12 @@
                 <div class="border rounded p-2 bg-light">
                     <textarea class="form-control" id="result" rows="15" placeholder="生成的文档将显示在这里，你可以直接编辑..." style="font-family: monospace;"></textarea>
                 </div>
-                <div class="mt-2 d-flex gap-2">
+                <div class="mt-2 d-flex gap-2 flex-wrap">
                     <button class="btn btn-outline-secondary btn-sm" id="copyBtn"><i class="far fa-copy"></i> 复制</button>
                     <button class="btn btn-outline-secondary btn-sm" id="exportMdBtn"><i class="fas fa-file-code"></i> 导出 Markdown</button>
                     <button class="btn btn-outline-secondary btn-sm" id="exportHtmlBtn"><i class="fas fa-file-code"></i> 导出 HTML</button>
+                    <!-- 新增：推送到 GitHub 按钮，触发模态框 -->
+                    <button class="btn btn-outline-dark btn-sm" id="pushToGithubBtn" data-bs-toggle="modal" data-bs-target="#githubPushModal"><i class="fab fa-github"></i> 推送到 GitHub</button>
                     <span class="flex-grow-1"></span>
                     <a href="/manage" class="btn btn-outline-primary btn-sm"><i class="fas fa-folder-open"></i> 管理已生成文档</a>
                 </div>
@@ -134,7 +136,30 @@
         </div>
     </div>
 
-    <!-- Bootstrap JS (用于选项卡) -->
+    <!-- GitHub 推送模态框 -->
+    <div class="modal fade" id="githubPushModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">推送到 GitHub</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="text" class="form-control mb-2" id="githubRepo" placeholder="仓库名 (例如 Underwaterblue/auto-doc-ai)" value="Underwaterblue/auto-doc-ai">
+                    <input type="text" class="form-control mb-2" id="githubFilePath" placeholder="文件路径 (例如 README.md)" value="README.md">
+                    <input type="text" class="form-control mb-2" id="githubBranch" placeholder="分支 (默认 main)" value="main">
+                    <input type="password" class="form-control mb-2" id="githubToken" placeholder="Personal Access Token (需要 repo 权限)">
+                    <input type="text" class="form-control mb-2" id="githubCommitMsg" placeholder="提交信息 (可选)" value="Update documentation via AI">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" id="confirmPush">推送</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS (用于选项卡和模态框) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 
     <!-- 自定义脚本 -->
@@ -268,6 +293,58 @@
                 } finally {
                     loading.style.display = 'none';
                     cloneBtn.disabled = false;
+                }
+            });
+
+            // ---------- GitHub 推送功能 ----------
+            const confirmPushBtn = document.getElementById('confirmPush');
+            confirmPushBtn.addEventListener('click', async () => {
+                const content = resultTextarea.value;
+                if (!content) {
+                    alert('没有内容可推送');
+                    return;
+                }
+
+                const repo = document.getElementById('githubRepo').value.trim();
+                const filePath = document.getElementById('githubFilePath').value.trim();
+                const branch = document.getElementById('githubBranch').value.trim() || 'main';
+                const token = document.getElementById('githubToken').value.trim();
+                const commitMsg = document.getElementById('githubCommitMsg').value.trim() || 'Update documentation via AI';
+
+                if (!repo || !filePath || !token) {
+                    alert('请填写仓库名、文件路径和 Token');
+                    return;
+                }
+
+                // 关闭模态框
+                const modal = bootstrap.Modal.getInstance(document.getElementById('githubPushModal'));
+                modal.hide();
+
+                loading.style.display = 'block';
+
+                try {
+                    const response = await fetch('/push_to_github', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            repo: repo,
+                            file_path: filePath,
+                            branch: branch,
+                            token: token,
+                            commit_message: commitMsg,
+                            content: content
+                        })
+                    });
+                    const data = await response.json();
+                    if (response.ok) {
+                        alert('推送成功！');
+                    } else {
+                        alert('推送失败：' + (data.error || '未知错误'));
+                    }
+                } catch (err) {
+                    alert('网络错误：' + err.message);
+                } finally {
+                    loading.style.display = 'none';
                 }
             });
 
